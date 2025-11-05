@@ -1,0 +1,125 @@
+version: "0.1"
+
+services:
+  # =======================
+  # Infraestrutura base
+  # =======================
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    restart: always
+    ports:
+      - "2181:2181"
+    networks:
+      - data-mesh
+
+  kafka:
+    image: wurstmeister/kafka
+    container_name: kafka
+    restart: always
+    ports:
+      - "9092:9092"  # externo (Python local)
+      - "29092:29092"  # interno (outros containers)
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      # Kafka escuta em duas interfaces: interna e externa
+      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://0.0.0.0:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9092
+
+      # Define o que o Kafka vai anunciar para cada listener
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://localhost:9092
+
+      # Mapeia os protocolos
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
+
+      # Define qual listener é o padrão (para controle interno)
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+
+      # Evita erro de replicação com apenas 1 broker
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+    depends_on:
+      - zookeeper
+    networks:
+      - data-mesh
+
+  # =======================
+  # Processamento
+  # =======================
+  spark:
+    image: bitnami/spark:latest # A priori, deixei latest
+    container_name: spark
+    restart: always
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    environment:
+      - SPARK_MODE=master
+    volumes:
+      - ./spark/app:/opt/spark-apps
+    networks:
+      - data-mesh
+
+  flink:
+    image: flink:latest # A priori, deixei latest
+    container_name: flink
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink
+    networks:
+      - data-mesh
+    
+  # =======================
+  # Orquestração
+  # =======================
+  airflow:
+    image: apache/airflow:latest # A priori, deixei latest
+    container_name: airflow
+    restart: always
+    ports:
+      - "8082:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__FERNET_KEY=fernet_key
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+    networks:
+      - data-mesh
+
+  # =======================
+  # Consulta e Visualização
+  # =======================
+  dremio:
+    image: dremio/dremio-oss:latest # A priori, deixei latest
+    container_name: dremio
+    restart: always
+    ports:
+      - "9047:9047"
+      - "31010:31010"
+    volumes:
+      - ./dremio:/opt/dremio/data
+    networks:
+      - data-mesh
+
+  metabase:
+    image: metabase/metabase
+    container_name: metabase
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - MB_DB_FILE=/metabase.db
+    volumes:
+      - ./metabase:/metabase.db
+    networks:
+      - data-mesh
+
+networks:
+  data-mesh:
+    driver: bridge
