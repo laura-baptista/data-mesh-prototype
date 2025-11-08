@@ -1,0 +1,4 @@
+infra/aws/
+infra/awscliv2.zip
+infra/.terraform/
+infra/terraform.tfstate
