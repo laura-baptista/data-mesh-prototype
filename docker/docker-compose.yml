@@ -75,24 +75,99 @@ services:
   # =======================
   # Orquestração
   # =======================
-  airflow:
-    profiles: ["full"]
-    image: apache/airflow:latest # A priori, deixei latest
-    container_name: airflow
-    restart: always
-    ports:
-      - "8082:8080"
+  airflow-postgres:
+    image: postgres:15
+    container_name: airflow-postgres
+    profiles: ["airflow", "full"]
     environment:
-      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
-      - AIRFLOW__CORE__FERNET_KEY=fernet_key
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
-      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    restart: always
+
+  airflow-init:
+    image: apache/airflow:2.10.2
+    profiles: ["airflow", "full"]
+    depends_on:
+      - airflow-postgres
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@local --password admin
+      "
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    user: "50000:50000"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
-    networks:
-      - data-mesh
+
+  airflow-webserver:
+    image: apache/airflow:2.10.2
+    container_name: airflow-webserver
+    profiles: ["airflow", "full"]
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - airflow-postgres
+      - airflow-init
+      - airflow-scheduler
+    command: webserver
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    user: "50000:50000"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+
+  airflow-scheduler:
+    image: apache/airflow:2.10.2
+    container_name: airflow-scheduler
+    profiles: ["airflow", "full"]
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - airflow-postgres
+      - airflow-init
+    command: scheduler
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    user: "50000:50000"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+
+  airflow-triggerer:
+    image: apache/airflow:2.10.2
+    container_name: airflow-triggerer
+    profiles: ["airflow", "full"]
+    restart: always
+    depends_on:
+      - airflow-postgres
+      - airflow-init
+    command: triggerer
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    user: "50000:50000"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
 
   # =======================
   # Consulta e Visualização

@@ -3,3 +3,5 @@ infra/awscliv2.zip
 infra/.terraform/
 infra/terraform.tfstate
 docker/metabase/
+docker/airflow/logs/
+docker/postgres/
