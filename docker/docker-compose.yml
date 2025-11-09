@@ -4,47 +4,49 @@ services:
   # =======================
   zookeeper:
     image: wurstmeister/zookeeper
+    profiles: ["kafka"]
     container_name: zookeeper
     restart: always
     ports:
-      - "2181:2181"
-    networks:
-      - data-mesh
+      - '2181:2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
 
   kafka:
     image: wurstmeister/kafka
+    profiles: ["kafka"]    
     container_name: kafka
     restart: always
     ports:
-      - "9092:9092"  # externo (Python local)
-      - "29092:29092"  # interno (outros containers)
+      - '9092:9092'
+      - '9093:9093'
     environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-
-      # Kafka escuta em duas interfaces: interna e externa
-      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://0.0.0.0:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9092
-
-      # Define o que o Kafka vai anunciar para cada listener
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://localhost:9092
-
-      # Mapeia os protocolos
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
-
-      # Define qual listener é o padrão (para controle interno)
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
-
-      # Evita erro de replicação com apenas 1 broker
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_LISTENERS=INTERNAL://:9092,EXTERNAL://:9093
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     depends_on:
       - zookeeper
-    networks:
-      - data-mesh
+    healthcheck:
+      test: [ "CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "kafka:9092" ]
+      interval: 30s
+      timeout: 10s
+      retries: 4
+
+  topic-creator:
+    profiles: ["kafka", "full"]
+    build: ./kafka
+    depends_on:
+      - kafka
+    restart: "on-failure"
 
   # =======================
   # Processamento
   # =======================
   spark:
+    profiles: ["full"]
     image: apache/spark:3.5.0
     container_name: spark
     restart: always
@@ -59,6 +61,7 @@ services:
       - data-mesh
 
   flink:
+    profiles: ["full"]
     image: flink:latest # A priori, deixei latest
     container_name: flink
     restart: always
@@ -73,6 +76,7 @@ services:
   # Orquestração
   # =======================
   airflow:
+    profiles: ["full"]
     image: apache/airflow:latest # A priori, deixei latest
     container_name: airflow
     restart: always
@@ -94,6 +98,7 @@ services:
   # Consulta e Visualização
   # =======================
   dremio:
+    profiles: ["full"]
     image: dremio/dremio-oss:latest # A priori, deixei latest
     container_name: dremio
     restart: always
@@ -106,6 +111,7 @@ services:
       - data-mesh
 
   metabase:
+    profiles: ["full"]
     image: metabase/metabase
     container_name: metabase
     restart: always
