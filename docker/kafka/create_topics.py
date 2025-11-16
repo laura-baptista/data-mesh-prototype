@@ -14,15 +14,11 @@ topics = [
     "clients.create.v1",
     "clients.update.v1",
     "clients.delete.v1",
-    "clients.auth.v1",
-    "clients.address.update.v1",
 
     # Domínio Vendas
-    "sales.order.create.v1",
-    "sales.order.update.v1",
-    "sales.order.cancel.v1",
-    "sales.order.status.v1",
-    "sales.order.completed.v1",
+    "sales.create.v1",
+    "sales.update.v1",
+    "sales.cancel.v1",
 ]
 
 PARTITIONS = 3
@@ -74,7 +70,7 @@ def create_kafka_topics():
             future.result()
             print(f"INFO: Criado: {topic}")
         except KafkaException as e:
-            if "Topic already exists" in str(e):
+            if "TOPIC_ALREADY_EXISTS" in str(e):
                 print(f"WARN: Já existe: {topic}")
             else:
                 print(f"ERROR: Erro ao criar {topic}: {e}")
