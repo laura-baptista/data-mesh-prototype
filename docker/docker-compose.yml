@@ -4,24 +4,26 @@ services:
   # =======================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.0
-    profiles: ["kafka", "full"]
+    profiles: ["kafka", "full", "spark"]
     container_name: zookeeper
     restart: always
     ports:
       - '2181:2181'
     environment:
-      - ZOOKEEPER_CLIENT_PORT=2181
-      - ZOOKEEPER_TICK_TIME=2000
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - data-mesh
 
   kafka:
     image: confluentinc/cp-kafka:7.7.0
-    profiles: ["kafka", "full"]
+    profiles: ["kafka", "full", "spark"]
     container_name: kafka
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"   # externo
-      - "9093:9093"   # interno
+      - "9092:9092"   # interno
+      - "9093:9093"   # externo
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -39,29 +41,41 @@ services:
       interval: 30s
       timeout: 10s
       retries: 4
+    networks:
+      - data-mesh
 
   topic-creator:
-    profiles: ["kafka", "full"]
+    profiles: ["kafka", "full", "spark"]
     build: ./kafka
     depends_on:
       - kafka
     restart: "on-failure"
+    networks:
+      - data-mesh
 
   # =======================
   # Processamento
   # =======================
   spark:
-    profiles: ["full"]
-    image: apache/spark:3.5.0
+    profiles: ["full", "spark"]
+    image: apache/spark:3.5.1
+    build:
+        context: ./spark
     container_name: spark
     restart: always
     ports:
       - "7077:7077"
-      - "8080:8080"
+      - "8083:8080"
+    command: >
+      bash -c "
+        /opt/spark/sbin/start-master.sh &&
+        tail -f /opt/spark/logs/spark--org.apache.spark.deploy.master.Master-1-*.out
+      "
     environment:
-      - SPARK_MODE=master
+      AWS_PROFILE: data-mesh
+      AWS_REGION: us-east-1
     volumes:
-      - ./spark/app:/opt/spark-apps
+      - ../scripts/consumers/spark/app:/opt/spark-apps
     networks:
       - data-mesh
 
@@ -206,4 +220,5 @@ services:
 
 networks:
   data-mesh:
+    name: data-mesh
     driver: bridge

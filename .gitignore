@@ -6,3 +6,4 @@ docker/metabase/
 docker/airflow/logs/
 docker/postgres/
 .venv/
+docker/spark/aws-config/
