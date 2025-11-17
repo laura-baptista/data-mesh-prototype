@@ -59,7 +59,7 @@ def path_exists(spark: SparkSession, path: str) -> bool:
         return False
 
 # Normalization helpers (use udf to remove accents)
-def remove_accents(s: str) -> str:
+def remove_accents_py(s: str) -> str:
     if s is None:
         return None
     normalized = unicodedata.normalize("NFKD", s)
