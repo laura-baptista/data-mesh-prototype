@@ -11,8 +11,8 @@ resource "aws_s3_bucket" "clients" {
   force_destroy = true
 }
 
-resource "aws_s3_bucket" "sells" {
-  bucket = "data-mesh-sells"
+resource "aws_s3_bucket" "sales" {
+  bucket = "data-mesh-sales"
   force_destroy = true
 }
 
@@ -37,7 +37,7 @@ data "aws_iam_policy_document" "s3_policy" {
     actions = ["s3:ListBucket"]
     resources = [
       aws_s3_bucket.clients.arn,
-      aws_s3_bucket.sells.arn,
+      aws_s3_bucket.sales.arn,
       aws_s3_bucket.shared.arn
     ]
   }
@@ -51,7 +51,7 @@ data "aws_iam_policy_document" "s3_policy" {
     ]
     resources = [
       "${aws_s3_bucket.clients.arn}/*",
-      "${aws_s3_bucket.sells.arn}/*",
+      "${aws_s3_bucket.sales.arn}/*",
       "${aws_s3_bucket.shared.arn}/*"
     ]
   }

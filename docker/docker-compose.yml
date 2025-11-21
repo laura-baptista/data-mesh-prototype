@@ -4,7 +4,7 @@ services:
   # =======================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.0
-    profiles: ["kafka", "full", "spark"]
+    profiles: ["kafka", "full", "spark", "flink"]
     container_name: zookeeper
     restart: always
     ports:
@@ -17,7 +17,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.7.0
-    profiles: ["kafka", "full", "spark"]
+    profiles: ["kafka", "full", "spark", "flink"]
     container_name: kafka
     depends_on:
       - zookeeper
@@ -45,7 +45,7 @@ services:
       - data-mesh
 
   topic-creator:
-    profiles: ["kafka", "full", "spark"]
+    profiles: ["kafka", "full", "spark", "flink"]
     build: ./kafka
     depends_on:
       - kafka
@@ -78,19 +78,35 @@ services:
       - ../scripts/consumers/spark/app:/opt/spark-apps
     networks:
       - data-mesh
-
-  flink:
-    profiles: ["full"]
-    image: flink:latest # A priori, deixei latest
-    container_name: flink
-    restart: always
+    
+  flink-jobmanager:
+    profiles: ["full", "flink"]
+    image: flink:1.20.0-scala_2.12
+    container_name: flink-jobmanager
+    build:
+        context: ./flink
+    command: jobmanager
     ports:
       - "8081:8081"
     environment:
-      - JOB_MANAGER_RPC_ADDRESS=flink
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    volumes:
+      - ../scripts/consumers/flink/jobs:/opt/flink-apps
     networks:
       - data-mesh
-    
+
+  flink-taskmanager:
+    profiles: ["full", "flink"]
+    image: flink:1.20.0-scala_2.12
+    build:
+        context: ./flink
+    container_name: flink-taskmanager
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    networks:
+      - data-mesh
+
   # =======================
   # Orquestração
   # =======================

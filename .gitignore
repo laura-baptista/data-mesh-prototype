@@ -7,3 +7,4 @@ docker/airflow/logs/
 docker/postgres/
 .venv/
 docker/spark/aws-config/
+docker/flink/aws-config/
