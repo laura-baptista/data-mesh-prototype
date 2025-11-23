@@ -220,15 +220,21 @@ services:
   # Consulta e Visualização
   # =======================
   dremio:
-    profiles: ["full"]
-    image: dremio/dremio-oss:latest # A priori, deixei latest
+    profiles: ["full", "dremio"]
+    image: dremio/dremio-oss:latest
     container_name: dremio
     restart: always
     ports:
-      - "9047:9047"
-      - "31010:31010"
+      - "9047:9047"   # UI
+      - "31010:31010" # JDBC/ODBC
+    environment:
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "us-east-1"
     volumes:
-      - ./dremio:/opt/dremio/data
+      - ./dremio-data:/opt/dremio/data
+      - ./dremio-config:/opt/dremio/conf
+      - ./dremio-logs:/opt/dremio/log
     networks:
       - data-mesh
 
