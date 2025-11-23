@@ -81,15 +81,20 @@ services:
     
   flink-jobmanager:
     profiles: ["full", "flink"]
-    image: flink:1.20.0-scala_2.12
-    container_name: flink-jobmanager
     build:
-        context: ./flink
+      context: ./flink
+    image: flink-iceberg:1.18
+    container_name: flink-jobmanager
     command: jobmanager
     ports:
       - "8081:8081"
     environment:
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - AWS_REGION=us-east-1
+      - S3A_REGION=us-east-1
+      - AWS_PROFILE=data-mesh
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
     volumes:
       - ../scripts/consumers/flink/jobs:/opt/flink-apps
     networks:
@@ -97,15 +102,22 @@ services:
 
   flink-taskmanager:
     profiles: ["full", "flink"]
-    image: flink:1.20.0-scala_2.12
     build:
-        context: ./flink
+      context: ./flink
+    image: flink-iceberg:1.18
     container_name: flink-taskmanager
     command: taskmanager
     environment:
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - AWS_REGION=us-east-1
+      - S3A_REGION=us-east-1
+      - AWS_PROFILE=data-mesh
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
     networks:
       - data-mesh
+    depends_on:
+      - flink-jobmanager
 
   # =======================
   # Orquestração
